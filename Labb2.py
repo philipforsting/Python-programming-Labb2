@@ -9,24 +9,26 @@ import numpy as np
 
 
 def ReadPointsFromFile(path, points, splitter): 
+    """Opens text file content specified from input path, cleans content and add cleaned content to array which is returned"""
     with open(path, "r") as f_read:      
-        next(f_read)                                # Skip first row. Inspiration: https://stackoverflow.com/questions/4796764/read-file-from-line-2-or-skip-header-row
+        next(f_read)                                
         for line in f_read:
             row = line.strip().split(splitter)                   
             for i in range(len(row)):
                 row[i] = row[i].strip(".,()") 
-            points.append([float(row[0]), float(row[1]), float(row[2])]) # converting elements in row to floats and adding them to list Inspiration: https://stackoverflow.com/questions/21238242/python-read-file-into-2d-list
+            points.append([float(row[0]), float(row[1]), float(row[2])]) 
     f_read.close()
     return np.array(points)               
 
 
 def ReadPointFromUser(testPoints):              # OPTIMERA DETTA
+    """Allows user to enter a manual test point. Only positive numbers are accepted"""
     print("Enter a width and height of pokémon and program will classify it as Pikachu or Pichu")
     while True:
         try:
             width = float(input("Enter width of pokémon: "))
-            if not 0 < width <= 1000:
-                print("Pokémon width must be between 0 and 1000 cm")
+            if not 0 < width:
+                print("Pokémon width must be between lanrger than 0")
                 continue
         except ValueError:
             print("This is not a number")
@@ -34,8 +36,8 @@ def ReadPointFromUser(testPoints):              # OPTIMERA DETTA
 
         try:
             height = float(input("Enter height of pokémon: "))
-            if not 0 < height <= 1000:
-                print("Pokémon height must be between 0 and 1000 cm")
+            if not 0 < height:
+                print("Pokémon height must be larger than 0")
                 continue
             testPoints.append([width, height])
             return np.array(testPoints)
@@ -44,36 +46,37 @@ def ReadPointFromUser(testPoints):              # OPTIMERA DETTA
             continue
     
 
-def ClassifyTestPoints(testRow, dataPoints, nrOfVoters):
+def PredictClassification(testRow, dataPoints, nrOfVoters):
+    """The data points nearest the test point (specified by nrOfVoters) will be sumarized. Predicted classification of test point will be determended by the winner of the poll"""
     vote_sum = 0
     for voter in range(nrOfVoters):
-        vote_sum += dataPoints[voter][2] 
-    if vote_sum == nrOfVoters/2.0:                                      # if voting result is a tie, radomize a class
-        vote_sum = np.random.randint(nrOfVoters)
+        vote_sum += dataPoints[voter][2]            # 0 = Pichu, 1 = Pikachu
+    if vote_sum == nrOfVoters/2.0:                                     
+        vote_sum = np.random.randint(nrOfVoters)    # if voting result is a tie, radomize a class
         print(f"Vote for sample with (width, height): ({testRow[0]}, {testRow[1]}) resulted in tie. Class has been randomized.")
     if vote_sum >= nrOfVoters/2.0:
-        print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pikachu")
+    #    print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pikachu")
         return 1
     else:
-        print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pichu")
+    #    print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pichu")
         return 0
 
 
-def CalcDistAndClassify(testPoints, dataPoints, nrOfVoters):                # slå isär denna till CalcDist() och Classify()
-    testPointsZeroColumn = np.zeros((testPoints.shape[0], 1))                   # Prepairing to store classification result: Creating a new column of zeroes, same size of rows as data point array. 
-    testPoints = np.column_stack((testPoints, testPointsZeroColumn))              # Adding the new zero column to array d_Points
+def CalcDistAndClassify(testPoints, dataPoints, nrOfVoters):
+    """Distance to testpoints will be calculated for every test point. Prediction will be added into a new column in array testPoints"""               
+    testPointsZeroColumn = np.zeros((testPoints.shape[0], 1))           # Prepairing to store classification result in testPionts array
+    testPoints = np.column_stack((testPoints, testPointsZeroColumn))              
     for testRow in testPoints:
-        d_zeroColumn = np.zeros((dataPoints.shape[0], 1))                   # Prepairing to store classification result: Creating a new column of zeroes, same size of rows as data point array. 
-        dataPoints = np.column_stack((dataPoints, d_zeroColumn))              # Adding the new zero column to array d_Points Inspiration: https://medium.com/@heyamit10/numpy-add-column-guide-0427e394b333
+        dataPointZeroColumn = np.zeros((dataPoints.shape[0], 1))        # Prepairing to store distance to testpoint for each datapoint in dataPoint array
+        dataPoints = np.column_stack((dataPoints, dataPointZeroColumn))              
         for dataRow in dataPoints:
             dataRow[-1] = np.sqrt((testRow[0] - dataRow[0])**2 + (testRow[1] - dataRow[1])**2)   # Storing distanse from test point to every datapoint in the new column  
-        dataPoints = dataPoints[np.argsort(dataPoints[:,-1])]                          # Sorting the d_Points array based on the distance value in new column. Inspiration: https://stackoverflow.com/questions/22698687/how-to-sort-2d-array-numpy-ndarray-based-to-the-second-column-in-python
-        testRow[2] = ClassifyTestPoints(testRow, dataPoints, nrOfVoters)
-    print(dataPoints[:, 2:7])
-    print(testPoints)           # FELSÖK
+        dataPoints = dataPoints[np.argsort(dataPoints[:,-1])]           # Sorting the dataPoints array based on the distance value in new column. Datapoint closest to testpoint will be at row 0
+        testRow[-1] = PredictClassification(testRow, dataPoints, nrOfVoters)
+    return testPoints
 
 def SplitPointsFromFile(allPoints):
-    # Shuffling Pichu and Pikachu separately to ensure that the returning arrays have the same amount of each class
+    """Splitting and shuffling points based on their classification"""
     allPoints = allPoints[np.argsort(allPoints[:,2])]
     allPichuPoints = allPoints[0:75, :]
     allPikachuPoints = allPoints[75:150, :]
@@ -83,47 +86,57 @@ def SplitPointsFromFile(allPoints):
     shuffledTestPoints = np.concatenate((allPichuPoints[50:75,:], allPikachuPoints[50:75,:]), axis=0)  # 50 data points(25 Pichu, 25 Pikachu)
     return shuffledDataPoints, shuffledTestPoints
 
-def Accuracy(testPoints, dataPoints):
-    print(testPoints)
-    TP = np.sum(testPoints[0:25,2] == 0)  # Found Pichus
-    TN = np.sum(testPoints[25:50,2] == 1) # Found Pikachus
-    FP = np.sum(testPoints[0:25,2] == 1)  # Classified Pichu was actually Pikachu
-    FN = np.sum(testPoints[25:50,2] == 0) # Classified Pikachu was actually Pichu
-    print(f"TP: {TP}")
-    print(f"TN: {TN}")
-    print(f"FP: {FP}")
-    print(f"FN: {FN}")
+def Accuracy(testPoints):
+    """Calculate the accuracy of this simple Machine Learning algorithm"""
+    TP = np.sum(testPoints[0:25,-1] == 0)  # Found Pichus
+    print(TP)
+    TN = np.sum(testPoints[25:50,-1] == 1) # Found Pikachus
+    print(TN)
+    FP = np.sum(testPoints[0:25,-1] == 1)  # Classified Pichu was actually Pikachu
+    print(FP)
+    FN = np.sum(testPoints[25:50,-1] == 0) # Classified Pikachu was actually Pichu
+    print(FN)
     acc = (TP+TN) / (TP+TN+FP+FN)
-    print(f"acc: {acc}")
-
-# Grunduppgift: Beräkna avstånd mellamn testpunkt och träningspunkter
-
-# Preparing to store distance between testpoint and datapoints in additinoal column
+    print(acc)
+    return acc
 
 # MAIN
+def main():
+    """Simple Machine Learning algorithm that uses data of simulated size measures of Pichus and Pikachus to predict how new test points shall be classified. 
+    Some funcion calls can be enabled/disabled or repeted by changing value of flags readTestPointsFromUser and executeBonusAssignments"""
+    dataPoints = []     
+    testPoints = []
+    nrOfVoters = 10
+    n = 0
+    acc = 0    
+    readTestPointsFromUser = False
+    executeBonusAssignments = True
+    path_dataPoints = "../Python-programming-Labb2/datapoints.txt"
+    path_testpoints = "../Python-programming-Labb2/testpoints.txt"
 
-dataPoints = []     
-testPoints = []
-nrOfVoters = 10
-readTestPointsFromUser = False
-executeBonusAssignments = False
-path_dataPoints = "../Python-programming-Labb2/datapoints.txt"
-path_testpoints = "../Python-programming-Labb2/testpoints.txt"
+    dataPoints = ReadPointsFromFile(path_dataPoints, dataPoints, ",")      # After call, array dataPoints contains 3 columns ["width", "height", "isPikachu"]
+    while (executeBonusAssignments and n<10) or n<1:                       # Repete Bonus assignments 10 times if they are enabled
+        if executeBonusAssignments:
+            dataPoints, testPoints = SplitPointsFromFile(dataPoints)
+        elif readTestPointsFromUser:
+            testPoints = ReadPointFromUser(testPoints)  # Se om denna kan optimeras
+        else:
+            testPoints = ReadPointsFromFile(path_testpoints, testPoints, " ")   # After call, array testPoints contains 3 columns ["index" , "width", "height"]
+            testPoints = np.delete(testPoints, 0, 1)                            # Deleting index column from testPoint after reading from file. 
+    
+        testPoints = CalcDistAndClassify(testPoints, dataPoints, nrOfVoters)    
+        if executeBonusAssignments:
+            acc += Accuracy(testPoints)
+        n += 1
+        print(f"n: {n}")
+    if executeBonusAssignments:
+        print(f"Mean accuracy of algorithm is: {acc}")
 
-dataPoints = ReadPointsFromFile(path_dataPoints, dataPoints, ",")   # After call, array dataPoints contains 3 columns ["width", "height", "isPikachu"]
-if executeBonusAssignments:
-    dataPoints, testPoints = SplitPointsFromFile(dataPoints)
-elif readTestPointsFromUser:
-    testPoints = ReadPointFromUser(testPoints)                      # Se om denna kan optimeras
-else:
-    testPoints = ReadPointsFromFile(path_testpoints, testPoints, " ")   # After call, array testPoints contains 3 columns ["index" , "width", "height"]
-    testPoints = np.delete(testPoints, 0, 1)                            # Deleting index column from testPoint after reading from file. Arrays dataPoints and testPoints now both contain width and height in the first two columns. Inspiration:  https://stackoverflow.com/questions/64180609/delete-both-row-and-column-in-numpy-array
-plt.scatter(dataPoints[:,0],dataPoints[:,1], c=dataPoints[:,2])     
-plt.legend(("Pichu", "Pikachu"))                                    # only "Pichu" is visible in legend. Are two scatters (one for each class) needed?
-plt.show()
+    plt.scatter(dataPoints[:,0], dataPoints[:,1], c=dataPoints[:,2] )     
+    plt.scatter(testPoints[:,0], testPoints[:,1], marker="x", label="Testpunkter")
+    plt.legend(("Pichu", "Pikachu"))                                    # only "Pichu" is visible in legend. Are two scatters (separated for each class) needed?
+    plt.show()
 
-CalcDistAndClassify(testPoints, dataPoints, nrOfVoters)             # After call, 
-if executeBonusAssignments:
-    Accuracy(testPoints, dataPoints)
-       
-
+        
+if __name__ == "__main__":   # The following rows have been copied from https://realpython.com/python-main-function/
+    main()
