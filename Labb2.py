@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def ReadPointsFromFile(path, points, splitter):
+def ReadPointsFromFile(path, points, splitter): 
     with open(path, "r") as f_read:      
         next(f_read)                                # Skip first row. Inspiration: https://stackoverflow.com/questions/4796764/read-file-from-line-2-or-skip-header-row
         for line in f_read:
@@ -44,38 +44,57 @@ def ReadPointFromUser(testPoints):              # OPTIMERA DETTA
             continue
     
 
+def ClassifyTestPoints(testRow, dataPoints, nrOfVoters):
+    vote_sum = 0
+    for voter in range(nrOfVoters):
+        vote_sum += dataPoints[voter][2] 
+    if vote_sum == nrOfVoters/2.0:                                      # if voting result is a tie, radomize a class
+        vote_sum = np.random.randint(nrOfVoters)
+        print(f"Vote for sample with (width, height): ({testRow[0]}, {testRow[1]}) resulted in tie. Class has been randomized.")
+    if vote_sum >= nrOfVoters/2.0:
+        print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pikachu")
+        return 1
+    else:
+        print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pichu")
+        return 0
+
 
 def CalcDistAndClassify(testPoints, dataPoints, nrOfVoters):                # slå isär denna till CalcDist() och Classify()
     testPointsZeroColumn = np.zeros((testPoints.shape[0], 1))                   # Prepairing to store classification result: Creating a new column of zeroes, same size of rows as data point array. 
     testPoints = np.column_stack((testPoints, testPointsZeroColumn))              # Adding the new zero column to array d_Points
     for testRow in testPoints:
-        vote_sum = 0
         d_zeroColumn = np.zeros((dataPoints.shape[0], 1))                   # Prepairing to store classification result: Creating a new column of zeroes, same size of rows as data point array. 
         dataPoints = np.column_stack((dataPoints, d_zeroColumn))              # Adding the new zero column to array d_Points Inspiration: https://medium.com/@heyamit10/numpy-add-column-guide-0427e394b333
-        testWidth = testRow[0]
-        testHeight = testRow[1]
         for dataRow in dataPoints:
-            dataWidth = dataRow[0]
-            dataHeight = dataRow[1]
-            dataRow[-1] = np.sqrt((testWidth - dataWidth)**2 + (testHeight - dataHeight)**2)   # Storing distanse from test point to every datapoint in the new column  
+            dataRow[-1] = np.sqrt((testRow[0] - dataRow[0])**2 + (testRow[1] - dataRow[1])**2)   # Storing distanse from test point to every datapoint in the new column  
         dataPoints = dataPoints[np.argsort(dataPoints[:,-1])]                          # Sorting the d_Points array based on the distance value in new column. Inspiration: https://stackoverflow.com/questions/22698687/how-to-sort-2d-array-numpy-ndarray-based-to-the-second-column-in-python
-        for voter in range(nrOfVoters):
-            vote_sum += dataPoints[voter][2] 
-        if vote_sum == nrOfVoters/2.0:                                      # if voting result is a tie, radomize a class
-            vote_sum = np.random.randint(nrOfVoters)
-            print(f"Vote for sample with (width, height): ({testWidth}, {testHeight}) resulted in tie. Class has been randomized.")
-        if vote_sum >= nrOfVoters/2.0:
-            print(f"Sample with (width, height): ({testWidth}, {testHeight}) classified as Pikachu")
-            testRow[2] = 1
-        else:
-            print(f"Sample with (width, height): ({testWidth}, {testHeight}) classified as Pichu")
-            testRow[2] = 0
- 
+        testRow[2] = ClassifyTestPoints(testRow, dataPoints, nrOfVoters)
+    print(dataPoints[:, 2:7])
+    print(testPoints)           # FELSÖK
 
-#testPoints_x = [line[1] for line in testPoints] 
-#testPoints_y = [line[2] for line in testPoints] 
-#plt.scatter(testPoints_x,testPoints_y) 
-#plt.show()
+def SplitPointsFromFile(allPoints):
+    # Shuffling Pichu and Pikachu separately to ensure that the returning arrays have the same amount of each class
+    allPoints = allPoints[np.argsort(allPoints[:,2])]
+    allPichuPoints = allPoints[0:75, :]
+    allPikachuPoints = allPoints[75:150, :]
+    np.random.shuffle(allPichuPoints)               
+    np.random.shuffle(allPikachuPoints)
+    shuffledDataPoints = np.concatenate((allPichuPoints[0:50,:], allPikachuPoints[0:50,:]), axis=0)   # 100 data points(50 Pichu, 50 Pikachu)
+    shuffledTestPoints = np.concatenate((allPichuPoints[50:75,:], allPikachuPoints[50:75,:]), axis=0)  # 50 data points(25 Pichu, 25 Pikachu)
+    return shuffledDataPoints, shuffledTestPoints
+
+def Accuracy(testPoints, dataPoints):
+    print(testPoints)
+    TP = np.sum(testPoints[0:25,2] == 0)  # Found Pichus
+    TN = np.sum(testPoints[25:50,2] == 1) # Found Pikachus
+    FP = np.sum(testPoints[0:25,2] == 1)  # Classified Pichu was actually Pikachu
+    FN = np.sum(testPoints[25:50,2] == 0) # Classified Pikachu was actually Pichu
+    print(f"TP: {TP}")
+    print(f"TN: {TN}")
+    print(f"FP: {FP}")
+    print(f"FN: {FN}")
+    acc = (TP+TN) / (TP+TN+FP+FN)
+    print(f"acc: {acc}")
 
 # Grunduppgift: Beräkna avstånd mellamn testpunkt och träningspunkter
 
@@ -86,21 +105,25 @@ def CalcDistAndClassify(testPoints, dataPoints, nrOfVoters):                # sl
 dataPoints = []     
 testPoints = []
 nrOfVoters = 10
-readTestPointsFromUser = True
+readTestPointsFromUser = False
+executeBonusAssignments = False
 path_dataPoints = "../Python-programming-Labb2/datapoints.txt"
 path_testpoints = "../Python-programming-Labb2/testpoints.txt"
 
 dataPoints = ReadPointsFromFile(path_dataPoints, dataPoints, ",")   # After call, array dataPoints contains 3 columns ["width", "height", "isPikachu"]
-plt.scatter(dataPoints[:,0],dataPoints[:,1], c=dataPoints[:,2])     # colouring condition inspiration taken from: https://www.tutorialspoint.com/scatter-a-2d-numpy-array-in-matplotlib
-plt.legend(("Pichu", "Pikachu"))                                    # only "Pichu" is visible in legend. Are two scatters (for each class) needed?
-#plt.show()
-
-if readTestPointsFromUser:
+if executeBonusAssignments:
+    dataPoints, testPoints = SplitPointsFromFile(dataPoints)
+elif readTestPointsFromUser:
     testPoints = ReadPointFromUser(testPoints)                      # Se om denna kan optimeras
 else:
     testPoints = ReadPointsFromFile(path_testpoints, testPoints, " ")   # After call, array testPoints contains 3 columns ["index" , "width", "height"]
     testPoints = np.delete(testPoints, 0, 1)                            # Deleting index column from testPoint after reading from file. Arrays dataPoints and testPoints now both contain width and height in the first two columns. Inspiration:  https://stackoverflow.com/questions/64180609/delete-both-row-and-column-in-numpy-array
-CalcDistAndClassify(testPoints, dataPoints, nrOfVoters)             # After call, 
+plt.scatter(dataPoints[:,0],dataPoints[:,1], c=dataPoints[:,2])     
+plt.legend(("Pichu", "Pikachu"))                                    # only "Pichu" is visible in legend. Are two scatters (one for each class) needed?
+plt.show()
 
+CalcDistAndClassify(testPoints, dataPoints, nrOfVoters)             # After call, 
+if executeBonusAssignments:
+    Accuracy(testPoints, dataPoints)
        
 
