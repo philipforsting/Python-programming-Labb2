@@ -21,7 +21,7 @@ def ReadPointsFromFile(path, splitter):
     return np.array(pointsFromFile)               
 
 
-def ReadPointFromUser():              # OPTIMERA DETTA
+def ReadPointFromUser():              
     """Allows user to enter a manual test point. Only positive numbers are accepted"""
     print("Enter a width and height of pokémon and program will classify it as Pikachu or Pichu")
     pointFromUser = []
@@ -54,12 +54,9 @@ def PredictClassification(testRow, dataPoints, nrOfVoters):
         vote_sum += dataPoints[voter][2]            # 0 = Pichu, 1 = Pikachu
     if vote_sum == nrOfVoters/2.0:                                     
         vote_sum = np.random.randint(nrOfVoters)    # if voting result is a tie, radomize a class
-    #    print(f"Vote for sample with (width, height): ({testRow[0]}, {testRow[1]}) resulted in tie. Class has been randomized.")
     if vote_sum >= nrOfVoters/2.0:
-    #    print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pikachu")
         return 1
     else:
-    #    print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pichu")
         return 0
 
 
