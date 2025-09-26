@@ -3,27 +3,28 @@
 # maskininlärningsalgoritm. I den här laborationen finns (simulerad) data på Pichus och Pikachus längder och bredder. Du ska skapa 
 # en algoritm som baserat på den givna datan kunna avgöra om en ny data punkt ska klassificeras som Pichu eller Pikachu.
 
-# Grunduppgift: Läs in datan och spara i lämplig datastruktur
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def ReadPointsFromFile(path, points, splitter): 
+def ReadPointsFromFile(path, splitter): 
     """Opens text file content specified from input path, cleans content and add cleaned content to array which is returned"""
+    pointsFromFile = []
     with open(path, "r") as f_read:      
         next(f_read)                                
         for line in f_read:
             row = line.strip().split(splitter)                   
             for i in range(len(row)):
                 row[i] = row[i].strip(".,()") 
-            points.append([float(row[0]), float(row[1]), float(row[2])]) 
+            pointsFromFile.append([float(row[0]), float(row[1]), float(row[2])]) 
     f_read.close()
-    return np.array(points)               
+    return np.array(pointsFromFile)               
 
 
-def ReadPointFromUser(testPoints):              # OPTIMERA DETTA
+def ReadPointFromUser():              # OPTIMERA DETTA
     """Allows user to enter a manual test point. Only positive numbers are accepted"""
     print("Enter a width and height of pokémon and program will classify it as Pikachu or Pichu")
+    pointFromUser = []
     while True:
         try:
             width = float(input("Enter width of pokémon: "))
@@ -39,8 +40,8 @@ def ReadPointFromUser(testPoints):              # OPTIMERA DETTA
             if not 0 < height:
                 print("Pokémon height must be larger than 0")
                 continue
-            testPoints.append([width, height])
-            return np.array(testPoints)
+            pointFromUser.append([width, height])
+            return np.array(pointFromUser)
         except ValueError:
             print("This is not a number")
             continue
@@ -53,7 +54,7 @@ def PredictClassification(testRow, dataPoints, nrOfVoters):
         vote_sum += dataPoints[voter][2]            # 0 = Pichu, 1 = Pikachu
     if vote_sum == nrOfVoters/2.0:                                     
         vote_sum = np.random.randint(nrOfVoters)    # if voting result is a tie, radomize a class
-        print(f"Vote for sample with (width, height): ({testRow[0]}, {testRow[1]}) resulted in tie. Class has been randomized.")
+    #    print(f"Vote for sample with (width, height): ({testRow[0]}, {testRow[1]}) resulted in tie. Class has been randomized.")
     if vote_sum >= nrOfVoters/2.0:
     #    print(f"Sample with (width, height): ({testRow[0]}, {testRow[1]}) classified as Pikachu")
         return 1
@@ -89,16 +90,10 @@ def SplitPointsFromFile(allPoints):
 def Accuracy(testPoints):
     """Calculate the accuracy of this simple Machine Learning algorithm"""
     TP = np.sum(testPoints[0:25,-1] == 0)  # Found Pichus
-    print(TP)
     TN = np.sum(testPoints[25:50,-1] == 1) # Found Pikachus
-    print(TN)
     FP = np.sum(testPoints[0:25,-1] == 1)  # Classified Pichu was actually Pikachu
-    print(FP)
     FN = np.sum(testPoints[25:50,-1] == 0) # Classified Pikachu was actually Pichu
-    print(FN)
-    acc = (TP+TN) / (TP+TN+FP+FN)
-    print(acc)
-    return acc
+    return (TP+TN) / (TP+TN+FP+FN)
 
 # MAIN
 def main():
@@ -108,35 +103,40 @@ def main():
     testPoints = []
     nrOfVoters = 10
     n = 0
-    acc = 0    
+    acc = np.empty(0)  
     readTestPointsFromUser = False
     executeBonusAssignments = True
     path_dataPoints = "../Python-programming-Labb2/datapoints.txt"
     path_testpoints = "../Python-programming-Labb2/testpoints.txt"
 
-    dataPoints = ReadPointsFromFile(path_dataPoints, dataPoints, ",")      # After call, array dataPoints contains 3 columns ["width", "height", "isPikachu"]
-    while (executeBonusAssignments and n<10) or n<1:                       # Repete Bonus assignments 10 times if they are enabled
+    dataPoints_org = ReadPointsFromFile(path_dataPoints, ",")               # After call, array dataPoints contains 3 columns ["width", "height", "isPikachu"]
+    while (executeBonusAssignments and n<10) or n<1:                       # Repeat Bonus assignments 10 times if they are enabled
+        dataPoints = dataPoints_org
         if executeBonusAssignments:
-            dataPoints, testPoints = SplitPointsFromFile(dataPoints)
+            dataPoints, testPoints = SplitPointsFromFile(dataPoints_org)
         elif readTestPointsFromUser:
-            testPoints = ReadPointFromUser(testPoints)  # Se om denna kan optimeras
+            testPoints = ReadPointFromUser()                                # Se om denna kan optimeras
         else:
-            testPoints = ReadPointsFromFile(path_testpoints, testPoints, " ")   # After call, array testPoints contains 3 columns ["index" , "width", "height"]
-            testPoints = np.delete(testPoints, 0, 1)                            # Deleting index column from testPoint after reading from file. 
+            testPoints = ReadPointsFromFile(path_testpoints, " ")           # After call, array testPoints contains 3 columns ["index" , "width", "height"]
+            testPoints = np.delete(testPoints, 0, 1)                         # Deleting index column from testPoint after reading from file. 
     
         testPoints = CalcDistAndClassify(testPoints, dataPoints, nrOfVoters)    
         if executeBonusAssignments:
-            acc += Accuracy(testPoints)
+            acc = np.append(acc, [Accuracy(testPoints)])
         n += 1
-        print(f"n: {n}")
     if executeBonusAssignments:
-        print(f"Mean accuracy of algorithm is: {acc}")
+        plt.figure(figsize=(16,16), dpi=100)
+        plt.subplot(1,2,2)
+        plt.scatter(range(n), acc)
+        plt.plot(range(n), [np.mean(acc) for n in range(n)], c='r')
+        plt.title("Accuracy per iteration")
+        plt.legend(("Accuracy per iteration", "Mean accuracy"))
+        plt.subplot(1,2,1)
 
     plt.scatter(dataPoints[:,0], dataPoints[:,1], c=dataPoints[:,2] )     
     plt.scatter(testPoints[:,0], testPoints[:,1], marker="x", label="Testpunkter")
     plt.legend(("Pichu", "Pikachu"))                                    # only "Pichu" is visible in legend. Are two scatters (separated for each class) needed?
     plt.show()
-
         
 if __name__ == "__main__":   # The following rows have been copied from https://realpython.com/python-main-function/
     main()
